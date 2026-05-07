@@ -36,7 +36,7 @@ Copy `.env.example` to `.env.local` for local development or add the same keys i
 GOOGLE_SHEETS_ID=
 GOOGLE_CLIENT_EMAIL=
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-BASE_URL=https://your-domain.com
+BASE_URL=https://trainer-checkin-system.vercel.app
 ADMIN_API_TOKEN=
 ```
 

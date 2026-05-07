@@ -8,12 +8,15 @@ const config: Config = {
         ink: "#111827",
         cloud: "#F6F8FB",
         line: "#E5EAF1",
-        brand: "#3B82F6",
-        success: "#16A34A"
+        brand: "#C00000",
+        success: "#C00000",
+        graphite: "#0A0A0B",
+        mist: "#FFF1F2"
       },
       boxShadow: {
-        soft: "0 16px 50px rgba(15, 23, 42, 0.08)",
-        lift: "0 10px 28px rgba(15, 23, 42, 0.10)"
+        soft: "0 18px 55px rgba(17, 24, 39, 0.08)",
+        lift: "0 18px 42px rgba(17, 24, 39, 0.13)",
+        glass: "0 24px 70px rgba(17, 24, 39, 0.11)"
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"]
