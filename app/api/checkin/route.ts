@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { appendCheckIn, getCheckIns, getClient } from "@/lib/google-sheets";
+import { appendCheckIn, getClient } from "@/lib/google-sheets";
 import { checkInSchema } from "@/lib/validation";
 import { dateKey, nowIso } from "@/lib/date";
 import { fail, ok, errorMessage } from "@/lib/api-response";
@@ -13,14 +13,6 @@ export async function POST(request: NextRequest) {
     if (client.status !== "active") return fail("Client is disabled", 403);
 
     const today = dateKey();
-    const existingToday = (await getCheckIns()).find(
-      (checkIn) => checkIn.clientId === client.clientId && checkIn.date === today && !checkIn.manualOverride
-    );
-
-    if (existingToday) {
-      return ok("Already checked in today", { checkIn: existingToday, duplicate: true });
-    }
-
     const checkIn = {
       clientId: client.clientId,
       name: client.name,

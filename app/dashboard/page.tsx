@@ -1,7 +1,23 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Activity, CalendarPlus, Download, MoreHorizontal, Plus, QrCode, RefreshCw, Search, Trash2, UserRoundCheck } from "lucide-react";
+import {
+  Activity,
+  CalendarDays,
+  CalendarPlus,
+  Clock3,
+  Download,
+  Fingerprint,
+  MoreHorizontal,
+  Plus,
+  QrCode,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  TrendingUp,
+  Trash2,
+  UserRoundCheck
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Input } from "@/components/ui";
@@ -35,6 +51,42 @@ async function readApi<T>(url: string, init?: RequestInit, tokenOverride?: strin
   return json.data;
 }
 
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(new Date(value));
+}
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function StatusRow({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 text-slate-300 [&_svg]:h-4 [&_svg]:w-4">
+        {icon}
+        <span className="text-xs font-medium">{label}</span>
+      </div>
+      <span className="text-sm font-semibold text-white">{value}</span>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [selected, setSelected] = useState<Client | null>(null);
@@ -46,6 +98,7 @@ export default function DashboardPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const load = async (tokenOverride?: string) => {
     try {
@@ -53,6 +106,7 @@ export default function DashboardPage() {
       setNotice("");
       const next = await readApi<DashboardData>("/api/dashboard", undefined, tokenOverride);
       setData(next);
+      setLastUpdated(new Date().toISOString());
       setSelected((current) => {
         const updated = current ? next.clients.find((client) => client.clientId === current.clientId) : null;
         setEditName((updated ?? next.clients[0])?.name ?? "");
@@ -131,10 +185,13 @@ export default function DashboardPage() {
     if (!selected) return;
     setBusy(true);
     try {
+      setError("");
+      setNotice("");
       await readApi("/api/manual-entry", {
         method: "POST",
         body: JSON.stringify({ clientId: selected.clientId })
       });
+      setNotice(`Manual session added for ${selected.name}.`);
       await load();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to add manual entry");
@@ -161,18 +218,43 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-4 border-b border-line/80 pb-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-medium text-brand">Trainer Attendance</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">Session command center</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Manage clients, QR codes, and attendance history from one focused workspace.
-            </p>
+        <header className="overflow-hidden rounded-lg bg-black shadow-glass ring-1 ring-black">
+          <div className="h-2 bg-red-600" />
+          <div className="border-b border-white/10 bg-black px-5 py-4 sm:px-6">
+            <div className="flex flex-col gap-3 text-white md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+                <span className="rounded-full bg-white px-3 py-1 text-black ring-1 ring-white">Trainer Attendance</span>
+                <span className="rounded-full bg-[#C00000] px-3 py-1 text-white ring-1 ring-[#A00000]">Live Sheets Sync</span>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-white ring-1 ring-white/20">QR Auto Check-in</span>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input aria-label="Admin token" placeholder="Admin token" value={token} onChange={(event) => setToken(event.target.value)} />
+                <Button variant="ghost" onClick={saveToken}>Save token</Button>
+                <Button variant="ghost" onClick={() => load()}><RefreshCw className="h-4 w-4" />Refresh</Button>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input aria-label="Admin token" placeholder="Admin token" value={token} onChange={(event) => setToken(event.target.value)} />
-            <Button variant="ghost" onClick={saveToken}>Save token</Button>
-            <Button variant="ghost" onClick={() => load()}><RefreshCw className="h-4 w-4" />Refresh</Button>
+
+          <div className="relative px-5 py-8 text-white sm:px-6 lg:px-8">
+            <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(255,255,255,.14)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.1)_1px,transparent_1px)] [background-size:28px_28px]" />
+            <div className="pointer-events-none absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-red-950/30 to-transparent" />
+            <div className="relative grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-red-300">Premium trainer operations</p>
+                <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
+                  Session command center
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+                  Manage QR access, daily arrivals, manual adjustments, and each client&apos;s complete attendance record
+                  from one polished control room.
+                </p>
+              </div>
+              <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.06] p-4 shadow-2xl backdrop-blur">
+                <StatusRow icon={<ShieldCheck />} label="Admin security" value={token ? "Token configured" : "Token optional"} />
+                <StatusRow icon={<TrendingUp />} label="Today performance" value={`${data?.stats.totalToday ?? 0} sessions`} />
+                <StatusRow icon={<Clock3 />} label="Last refreshed" value={lastUpdated ? formatTime(lastUpdated) : "Waiting"} />
+              </div>
+            </div>
           </div>
         </header>
 
@@ -197,7 +279,7 @@ export default function DashboardPage() {
         )}
 
         {notice && (
-          <div className="mt-5 rounded-md bg-green-50 px-4 py-3 text-sm text-green-700 ring-1 ring-green-100">{notice}</div>
+          <div className="mt-5 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-100">{notice}</div>
         )}
 
         {!isUnlocked && !error && (
@@ -205,108 +287,221 @@ export default function DashboardPage() {
         )}
 
         {isUnlocked && (
-        <>
-        <section className="mt-6 grid gap-4 md:grid-cols-3">
-          <Stat icon={<Activity />} label="Check-ins today" value={data?.stats.totalToday ?? 0} />
-          <Stat icon={<UserRoundCheck />} label="Active clients" value={data?.stats.activeClients ?? 0} />
-          <Stat icon={<CalendarPlus />} label="Weekly attendance" value={`${data?.stats.weeklyAttendancePercent ?? 0}%`} />
-        </section>
+          <>
+            <section className="mt-6 grid gap-4 md:grid-cols-3">
+              <Stat icon={<Activity />} label="Check-ins today" value={data?.stats.totalToday ?? 0} tone="red" />
+              <Stat icon={<UserRoundCheck />} label="Active clients" value={data?.stats.activeClients ?? 0} tone="black" />
+              <Stat icon={<CalendarPlus />} label="Weekly attendance" value={`${data?.stats.weeklyAttendancePercent ?? 0}%`} tone="white" />
+            </section>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[390px_1fr]">
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-ink">Clients</h2>
-              <span className="text-sm text-slate-500">{filteredClients.length}</span>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <Input placeholder="Add client name" value={newName} onChange={(event) => setNewName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createClient()} />
-              <Button aria-label="Add client" disabled={busy || !newName.trim()} onClick={createClient}><Plus className="h-4 w-4" /></Button>
-            </div>
-            <div className="mt-3 flex items-center gap-2 rounded-md bg-cloud px-3 py-2">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" placeholder="Search clients" value={query} onChange={(event) => setQuery(event.target.value)} />
-            </div>
-            <div className="mt-4 space-y-2">
-              {filteredClients.map((client) => (
-                <button
-                  key={client.clientId}
-                  onClick={() => {
-                    setSelected(client);
-                    setEditName(client.name);
-                  }}
-                  className={`w-full rounded-md px-3 py-3 text-left transition ${selected?.clientId === client.clientId ? "bg-blue-50 ring-1 ring-blue-100" : "hover:bg-cloud"}`}
-                >
-                  <div className="flex items-center justify-between gap-3">
+            <section className="mt-6 grid gap-6 lg:grid-cols-[390px_1fr]">
+              <Card className="overflow-hidden border-t-4 border-t-red-600">
+                <div className="border-b border-line/80 bg-white px-4 py-4">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-ink">{client.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{client.clientId}</p>
+                      <h2 className="text-lg font-semibold text-ink">Clients</h2>
+                      <p className="mt-1 text-sm text-slate-500">Roster, QR access, and profile controls.</p>
                     </div>
-                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${client.status === "active" ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-600"}`}>
-                      {client.status}
-                    </span>
+                    <span className="rounded-full bg-black px-2.5 py-1 text-sm font-semibold text-white">{filteredClients.length}</span>
                   </div>
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-            <Card className="p-4 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-ink">Live check-ins</h2>
-                  <p className="mt-1 text-sm text-slate-500">Refreshes every 15 seconds.</p>
                 </div>
-                <Button variant="ghost" disabled={!selected || busy} onClick={manualEntry}><CalendarPlus className="h-4 w-4" />Manual entry</Button>
-              </div>
-              <div className="mt-5 space-y-3">
-                <AnimatePresence initial={false}>
-                  {(data?.checkIns ?? []).slice(0, 10).map((entry) => (
-                    <motion.div
-                      key={`${entry.clientId}-${entry.timestamp}`}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="flex items-center justify-between rounded-md bg-cloud px-4 py-3"
+                <div className="p-4">
+                  <div className="flex gap-2">
+                    <Input placeholder="Add client name" value={newName} onChange={(event) => setNewName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createClient()} />
+                    <Button aria-label="Add client" disabled={busy || !newName.trim()} onClick={createClient}><Plus className="h-4 w-4" /></Button>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 rounded-md bg-cloud px-3 py-2 ring-1 ring-line/70">
+                    <Search className="h-4 w-4 text-slate-400" />
+                    <input className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" placeholder="Search clients" value={query} onChange={(event) => setQuery(event.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-2 px-4 pb-4">
+                  {filteredClients.map((client) => (
+                    <button
+                      key={client.clientId}
+                      onClick={() => {
+                        setSelected(client);
+                        setEditName(client.name);
+                      }}
+                      className={`w-full rounded-md px-3 py-3 text-left transition ${selected?.clientId === client.clientId ? "bg-black text-white shadow-sm ring-1 ring-black" : "bg-white ring-1 ring-transparent hover:bg-red-50 hover:ring-red-100"}`}
                     >
-                      <div>
-                        <p className="font-medium text-ink">{entry.name}</p>
-                        <p className="text-xs text-slate-500">{entry.date}{entry.manualOverride ? " · manual" : ""}</p>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-md text-xs font-semibold ring-1 ${selected?.clientId === client.clientId ? "bg-red-600 text-white ring-red-500" : "bg-white text-red-600 ring-line"}`}>
+                            {initials(client.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`truncate font-medium ${selected?.clientId === client.clientId ? "text-white" : "text-ink"}`}>{client.name}</p>
+                            <p className={`mt-1 truncate text-xs ${selected?.clientId === client.clientId ? "text-white/55" : "text-slate-500"}`}>{client.clientId}</p>
+                          </div>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${selected?.clientId === client.clientId ? "bg-white/10 text-white ring-1 ring-white/15" : client.status === "active" ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+                          {client.status}
+                        </span>
                       </div>
-                      <p className="text-sm font-medium text-slate-700">{new Date(entry.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>
-                    </motion.div>
+                    </button>
                   ))}
-                </AnimatePresence>
-              </div>
-            </Card>
+                </div>
+              </Card>
 
-            <ClientDetail
-              client={selected}
-              history={selectedHistory}
-              busy={busy}
-              editName={editName}
-              setEditName={setEditName}
-              onSaveName={() => selected && mutateClient(selected.clientId, { name: editName.trim() })}
-              onStatus={(clientId, status) => mutateClient(clientId, { status })}
-              onDelete={deleteClient}
-            />
-          </div>
-        </section>
-        </>
+              <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+                <LiveFeed entries={data?.checkIns ?? []} selected={selected} busy={busy} onManualEntry={manualEntry} />
+                <ClientDetail
+                  client={selected}
+                  history={selectedHistory}
+                  busy={busy}
+                  editName={editName}
+                  setEditName={setEditName}
+                  onSaveName={() => selected && mutateClient(selected.clientId, { name: editName.trim() })}
+                  onStatus={(clientId, status) => mutateClient(clientId, { status })}
+                  onDelete={deleteClient}
+                />
+              </div>
+            </section>
+          </>
         )}
       </div>
     </main>
   );
 }
 
-function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
+function Stat({
+  icon,
+  label,
+  value,
+  tone
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  tone: "red" | "black" | "white";
+}) {
+  const styles = {
+    red: {
+      card: "bg-[#C00000] text-white ring-[#A00000]",
+      icon: "bg-white/15 text-white ring-white/20",
+      label: "text-red-100",
+      value: "text-white",
+      track: "bg-white/20",
+      fill: "bg-white"
+    },
+    black: {
+      card: "bg-black text-white ring-black",
+      icon: "bg-white/10 text-white ring-white/20",
+      label: "text-zinc-300",
+      value: "text-white",
+      track: "bg-zinc-800",
+      fill: "bg-[#C00000]"
+    },
+    white: {
+      card: "bg-white text-ink ring-line",
+      icon: "bg-red-50 text-red-600 ring-red-100",
+      label: "text-slate-500",
+      value: "text-ink",
+      track: "bg-slate-100",
+      fill: "bg-red-600"
+    }
+  }[tone];
+
   return (
-    <Card className="p-5">
-      <div className="flex items-center gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-md bg-blue-50 text-brand [&_svg]:h-5 [&_svg]:w-5">{icon}</div>
+    <Card className={`group overflow-hidden p-5 hover:shadow-lift ${styles.card}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className={`grid h-11 w-11 place-items-center rounded-md ring-1 transition group-hover:scale-[1.03] [&_svg]:h-5 [&_svg]:w-5 ${styles.icon}`}>{icon}</div>
         <div>
-          <p className="text-sm text-slate-500">{label}</p>
-          <p className="mt-1 text-2xl font-semibold text-ink">{value}</p>
+          <p className={`text-right text-sm ${styles.label}`}>{label}</p>
+          <p className={`mt-1 text-right text-3xl font-semibold tracking-tight ${styles.value}`}>{value}</p>
+        </div>
+      </div>
+      <div className={`mt-4 h-1.5 overflow-hidden rounded-full ${styles.track}`}>
+        <div className={`h-full rounded-full ${styles.fill}`} style={{ width: "72%" }} />
+      </div>
+    </Card>
+  );
+}
+
+function LiveFeed({
+  entries,
+  selected,
+  busy,
+  onManualEntry
+}: {
+  entries: CheckIn[];
+  selected: Client | null;
+  busy: boolean;
+  onManualEntry: () => void;
+}) {
+  const latest = entries[0];
+  const manualCount = entries.filter((entry) => entry.manualOverride).length;
+  const qrCount = entries.length - manualCount;
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="border-b border-red-950 bg-black px-4 py-4 text-white sm:px-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">Attendance stream</h2>
+              <span className="rounded-full bg-[#C00000] px-2 py-1 text-xs font-semibold text-white ring-1 ring-[#A00000]">Live</span>
+            </div>
+            <p className="mt-1 text-sm text-zinc-300">
+              {latest ? `Last session: ${latest.name} at ${formatTime(latest.timestamp)}` : "No check-ins recorded yet."}
+            </p>
+          </div>
+          <Button variant="ghost" disabled={!selected || busy} onClick={onManualEntry}>
+            <CalendarPlus className="h-4 w-4" />Manual entry
+          </Button>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <StreamMetric label="Total sessions" value={entries.length} />
+          <StreamMetric label="QR scans" value={qrCount} />
+          <StreamMetric label="Manual added" value={manualCount} />
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-b from-red-50 via-white to-white p-4 sm:p-5">
+        {entries.length === 0 && (
+          <div className="grid min-h-72 place-items-center rounded-lg border border-dashed border-line bg-white/70 p-8 text-center">
+            <div>
+              <Fingerprint className="mx-auto h-10 w-10 text-slate-300" />
+              <p className="mt-3 text-sm font-medium text-ink">Waiting for the first scan</p>
+              <p className="mt-1 text-sm text-slate-500">QR check-ins will appear here instantly after refresh.</p>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <AnimatePresence initial={false}>
+            {entries.slice(0, 12).map((entry, index) => (
+              <motion.div
+                key={`${entry.clientId}-${entry.timestamp}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.22, delay: Math.min(index * 0.02, 0.12) }}
+                className="group rounded-lg border-l-4 border-l-[#C00000] bg-white p-4 shadow-sm ring-1 ring-line transition hover:-translate-y-0.5 hover:shadow-lift"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-md text-sm font-semibold ring-1 ${entry.manualOverride ? "bg-zinc-100 text-zinc-800 ring-zinc-200" : "bg-red-50 text-red-600 ring-red-100"}`}>
+                      {initials(entry.name)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-ink">{entry.name}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span>{formatDate(entry.timestamp)}</span>
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span>{entry.manualOverride ? "Manual session" : "QR check-in"}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-ink">{formatTime(entry.timestamp)}</p>
+                    <p className="mt-1 text-xs text-slate-500">Session #{entries.length - index}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </div>
     </Card>
@@ -336,6 +531,10 @@ function ClientDetail({
     return <Card className="grid min-h-80 place-items-center p-6 text-center text-sm text-slate-500">Select or create a client.</Card>;
   }
 
+  const manualSessions = history.filter((entry) => entry.manualOverride).length;
+  const qrSessions = history.length - manualSessions;
+  const lastSession = history[0];
+
   const downloadQr = async () => {
     const data = await readApi<{ qrCode: string }>("/api/qr", {
       method: "POST",
@@ -348,37 +547,105 @@ function ClientDetail({
   };
 
   return (
-    <Card className="p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-ink">{client.name}</h2>
-          <p className="mt-1 text-xs text-slate-500">{client.qrUrl}</p>
-        </div>
-        <MoreHorizontal className="h-5 w-5 text-slate-400" />
-      </div>
-      <div className="mt-5 grid gap-2">
-        <div className="flex gap-2">
-          <Input aria-label="Client name" value={editName} onChange={(event) => setEditName(event.target.value)} />
-          <Button variant="ghost" disabled={busy || !editName.trim() || editName.trim() === client.name} onClick={onSaveName}>Save</Button>
-        </div>
-        <Button variant="ghost" onClick={downloadQr}><Download className="h-4 w-4" />Download QR</Button>
-        <Button variant="ghost" onClick={() => onStatus(client.clientId, client.status === "active" ? "disabled" : "active")} disabled={busy}>
-          <QrCode className="h-4 w-4" />{client.status === "active" ? "Disable QR" : "Enable QR"}
-        </Button>
-        <Button variant="danger" onClick={() => onDelete(client.clientId)} disabled={busy}><Trash2 className="h-4 w-4" />Delete client</Button>
-      </div>
-      <div className="mt-6">
-        <h3 className="text-sm font-semibold text-ink">Attendance history</h3>
-        <div className="mt-3 max-h-80 space-y-2 overflow-auto pr-1">
-          {history.length === 0 && <p className="text-sm text-slate-500">No sessions recorded yet.</p>}
-          {history.map((entry) => (
-            <div key={`${entry.timestamp}-${entry.manualOverride}`} className="rounded-md bg-cloud px-3 py-2">
-              <p className="text-sm font-medium text-ink">{new Date(entry.timestamp).toLocaleString()}</p>
-              <p className="text-xs text-slate-500">{entry.manualOverride ? "Manual session" : "QR check-in"}</p>
+    <Card className="overflow-hidden border-t-4 border-t-[#C00000]">
+      <div className="bg-black px-5 py-5 text-white">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-white/10 text-sm font-semibold ring-1 ring-white/15">
+                {initials(client.name)}
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-lg font-semibold">{client.name}</h2>
+                <p className="mt-1 text-xs text-white/60">{client.status === "active" ? "Active QR access" : "QR access disabled"}</p>
+              </div>
             </div>
-          ))}
+          </div>
+          <MoreHorizontal className="h-5 w-5 shrink-0 text-white/45" />
+        </div>
+        <div className="mt-5 grid grid-cols-3 gap-2">
+          <MiniMetric label="Total" value={history.length} accent />
+          <MiniMetric label="QR" value={qrSessions} />
+          <MiniMetric label="Manual" value={manualSessions} />
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-5">
+        <div className="rounded-lg border-l-4 border-l-[#C00000] bg-red-50 p-3 ring-1 ring-red-100">
+          <p className="text-xs font-medium uppercase text-slate-500">Check-in URL</p>
+          <p className="mt-1 break-all text-xs leading-5 text-slate-600">{client.qrUrl}</p>
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          <div className="flex gap-2">
+            <Input aria-label="Client name" value={editName} onChange={(event) => setEditName(event.target.value)} />
+            <Button variant="ghost" disabled={busy || !editName.trim() || editName.trim() === client.name} onClick={onSaveName}>Save</Button>
+          </div>
+          <Button variant="ghost" onClick={downloadQr}><Download className="h-4 w-4" />Download QR</Button>
+          <Button variant="ghost" onClick={() => onStatus(client.clientId, client.status === "active" ? "disabled" : "active")} disabled={busy}>
+            <QrCode className="h-4 w-4" />{client.status === "active" ? "Disable QR" : "Enable QR"}
+          </Button>
+          <Button variant="danger" onClick={() => onDelete(client.clientId)} disabled={busy}><Trash2 className="h-4 w-4" />Delete client</Button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <InfoTile icon={<Clock3 />} label="Last visit" value={lastSession ? formatDate(lastSession.timestamp) : "None"} />
+          <InfoTile icon={<CalendarDays />} label="Created" value={formatDate(client.createdAt)} />
+        </div>
+
+        <div className="mt-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-ink">Session history</h3>
+            <span className="text-xs text-slate-500">{history.length} total</span>
+          </div>
+          <div className="mt-3 max-h-96 space-y-2 overflow-auto pr-1">
+            {history.length === 0 && <p className="rounded-md bg-cloud px-3 py-3 text-sm text-slate-500">No sessions recorded yet.</p>}
+            {history.map((entry, index) => (
+              <div key={`${entry.timestamp}-${entry.manualOverride}`} className="rounded-md border-l-4 border-l-[#C00000] bg-white px-3 py-3 shadow-sm ring-1 ring-line">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">Session #{history.length - index}</p>
+                    <p className="mt-1 text-xs text-slate-500">{formatDate(entry.timestamp)} at {formatTime(entry.timestamp)}</p>
+                  </div>
+                  <span className={`rounded-full px-2 py-1 text-xs font-medium ${entry.manualOverride ? "bg-zinc-100 text-zinc-800" : "bg-red-50 text-red-600"}`}>
+                    {entry.manualOverride ? "Manual Added" : "QR Check-in"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </Card>
+  );
+}
+
+function StreamMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-md bg-white/10 px-3 py-2 ring-1 ring-white/15">
+      <p className="text-xs text-zinc-300">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value, accent = false }: { label: string; value: ReactNode; accent?: boolean }) {
+  return (
+    <div className={`rounded-md px-3 py-2 ring-1 ${accent ? "bg-[#C00000] ring-[#A00000]" : "bg-white/10 ring-white/10"}`}>
+      <p className="text-xs text-white/55">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
+function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-md bg-cloud p-3 ring-1 ring-line/70">
+      <div className="flex items-center gap-2 text-slate-500 [&_svg]:h-4 [&_svg]:w-4">
+        {icon}
+        <span className="text-xs font-medium">{label}</span>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-ink">{value}</p>
+    </div>
   );
 }

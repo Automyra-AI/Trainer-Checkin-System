@@ -65,7 +65,7 @@ function CheckInPanel() {
       >
         {state.status === "loading" && (
           <>
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-brand" />
+            <Loader2 className="mx-auto h-12 w-12 animate-spin text-red-600" />
             <h1 className="mt-6 text-2xl font-semibold text-ink">Checking you in</h1>
             <p className="mt-2 text-sm text-slate-500">{state.message}</p>
           </>
@@ -73,7 +73,7 @@ function CheckInPanel() {
 
         {state.status === "success" && (
           <>
-            <CheckCircle2 className="mx-auto h-14 w-14 text-success" />
+            <CheckCircle2 className="mx-auto h-14 w-14 text-red-600" />
             <h1 className="mt-6 text-2xl font-semibold text-ink">
               {state.duplicate ? "Already checked in" : "Checked in successfully"}
             </h1>

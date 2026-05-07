@@ -20,8 +20,10 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 34rem),
-    linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
+    linear-gradient(rgba(220, 38, 38, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(10, 10, 11, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, #ffffff 0%, #fff5f5 40%, #f8fafc 100%);
+  background-size: 36px 36px, 36px 36px, auto;
   color: #111827;
 }
 
@@ -36,5 +38,11 @@ select {
 }
 
 .focus-ring {
-  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2;
+}
+
+.premium-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.84)),
+    linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(10, 10, 11, 0.04));
 }
