@@ -46,3 +46,76 @@ select {
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.84)),
     linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(10, 10, 11, 0.04));
 }
+
+@media (min-width: 1024px) and (min-height: 880px) {
+  .dashboard-main {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .dashboard-shell {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .dashboard-workspace {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.scroll-panel {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(192, 0, 0, 0.55) rgba(15, 23, 42, 0.08);
+}
+
+.roster-scroll {
+  max-height: min(26rem, 58vh);
+}
+
+.feed-scroll {
+  max-height: min(34rem, 62vh);
+}
+
+.history-scroll {
+  max-height: min(17rem, 42vh);
+}
+
+@media (min-width: 1024px) {
+  .roster-scroll {
+    min-height: 18rem;
+  }
+
+  .history-scroll {
+    min-height: 14rem;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 880px) {
+  .roster-scroll,
+  .feed-scroll,
+  .history-scroll {
+    max-height: none;
+  }
+}
+
+.scroll-panel::-webkit-scrollbar {
+  width: 10px;
+}
+
+.scroll-panel::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+}
+
+.scroll-panel::-webkit-scrollbar-thumb {
+  background: rgba(192, 0, 0, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  cursor: grab;
+}
+
+.scroll-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(192, 0, 0, 0.78);
+}
