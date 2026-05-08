@@ -216,9 +216,9 @@ export default function DashboardPage() {
   const isUnlocked = Boolean(data) && !unauthorized;
 
   return (
-    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <header className="overflow-hidden rounded-lg bg-black shadow-glass ring-1 ring-black">
+    <main className="dashboard-main min-h-screen overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+      <div className="dashboard-shell mx-auto flex max-w-7xl flex-col">
+        <header className="shrink-0 overflow-hidden rounded-lg bg-black shadow-glass ring-1 ring-black">
           <div className="h-2 bg-red-600" />
           <div className="border-b border-white/10 bg-black px-5 py-4 sm:px-6">
             <div className="flex flex-col gap-3 text-white md:flex-row md:items-center md:justify-between">
@@ -288,15 +288,15 @@ export default function DashboardPage() {
 
         {isUnlocked && (
           <>
-            <section className="mt-6 grid gap-4 md:grid-cols-3">
+            <section className="mt-6 shrink-0 grid gap-4 md:grid-cols-3">
               <Stat icon={<Activity />} label="Check-ins today" value={data?.stats.totalToday ?? 0} tone="red" />
               <Stat icon={<UserRoundCheck />} label="Active clients" value={data?.stats.activeClients ?? 0} tone="black" />
               <Stat icon={<CalendarPlus />} label="Weekly attendance" value={`${data?.stats.weeklyAttendancePercent ?? 0}%`} tone="white" />
             </section>
 
-            <section className="mt-6 grid gap-6 lg:grid-cols-[390px_1fr]">
-              <Card className="overflow-hidden border-t-4 border-t-red-600">
-                <div className="border-b border-line/80 bg-white px-4 py-4">
+            <section className="dashboard-workspace mt-6 grid gap-6 lg:grid-cols-[390px_minmax(0,1fr)]">
+              <Card className="flex min-h-0 flex-col overflow-hidden border-t-4 border-t-red-600">
+                <div className="shrink-0 border-b border-line/80 bg-white px-4 py-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-lg font-semibold text-ink">Clients</h2>
@@ -305,7 +305,7 @@ export default function DashboardPage() {
                     <span className="rounded-full bg-black px-2.5 py-1 text-sm font-semibold text-white">{filteredClients.length}</span>
                   </div>
                 </div>
-                <div className="p-4">
+                <div className="shrink-0 p-4">
                   <div className="flex gap-2">
                     <Input placeholder="Add client name" value={newName} onChange={(event) => setNewName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createClient()} />
                     <Button aria-label="Add client" disabled={busy || !newName.trim()} onClick={createClient}><Plus className="h-4 w-4" /></Button>
@@ -315,7 +315,7 @@ export default function DashboardPage() {
                     <input className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" placeholder="Search clients" value={query} onChange={(event) => setQuery(event.target.value)} />
                   </div>
                 </div>
-                <div className="space-y-2 px-4 pb-4">
+                <div className="scroll-panel roster-scroll min-h-0 flex-1 space-y-2 overflow-y-scroll px-4 pb-4 pr-2">
                   {filteredClients.map((client) => (
                     <button
                       key={client.clientId}
@@ -344,7 +344,7 @@ export default function DashboardPage() {
                 </div>
               </Card>
 
-              <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+              <div className="grid min-h-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
                 <LiveFeed entries={data?.checkIns ?? []} selected={selected} busy={busy} onManualEntry={manualEntry} />
                 <ClientDetail
                   client={selected}
@@ -435,8 +435,8 @@ function LiveFeed({
   const qrCount = entries.length - manualCount;
 
   return (
-    <Card className="overflow-hidden">
-      <div className="border-b border-red-950 bg-black px-4 py-4 text-white sm:px-5">
+    <Card className="flex min-h-0 flex-col overflow-hidden">
+      <div className="shrink-0 border-b border-red-950 bg-black px-4 py-4 text-white sm:px-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -458,7 +458,7 @@ function LiveFeed({
         </div>
       </div>
 
-      <div className="bg-gradient-to-b from-red-50 via-white to-white p-4 sm:p-5">
+      <div className="scroll-panel feed-scroll min-h-0 flex-1 overflow-y-scroll bg-gradient-to-b from-red-50 via-white to-white p-4 sm:p-5">
         {entries.length === 0 && (
           <div className="grid min-h-72 place-items-center rounded-lg border border-dashed border-line bg-white/70 p-8 text-center">
             <div>
@@ -471,7 +471,7 @@ function LiveFeed({
 
         <div className="space-y-3">
           <AnimatePresence initial={false}>
-            {entries.slice(0, 12).map((entry, index) => (
+            {entries.map((entry, index) => (
               <motion.div
                 key={`${entry.clientId}-${entry.timestamp}`}
                 initial={{ opacity: 0, y: 8 }}
@@ -528,7 +528,7 @@ function ClientDetail({
   onDelete: (clientId: string) => void;
 }) {
   if (!client) {
-    return <Card className="grid min-h-80 place-items-center p-6 text-center text-sm text-slate-500">Select or create a client.</Card>;
+    return <Card className="grid min-h-80 place-items-center p-6 text-center text-sm text-slate-500 xl:min-h-0">Select or create a client.</Card>;
   }
 
   const manualSessions = history.filter((entry) => entry.manualOverride).length;
@@ -547,8 +547,8 @@ function ClientDetail({
   };
 
   return (
-    <Card className="overflow-hidden border-t-4 border-t-[#C00000]">
-      <div className="bg-black px-5 py-5 text-white">
+    <Card className="flex min-h-0 flex-col overflow-hidden border-t-4 border-t-[#C00000]">
+      <div className="shrink-0 bg-black px-5 py-5 text-white">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
@@ -570,7 +570,7 @@ function ClientDetail({
         </div>
       </div>
 
-      <div className="p-4 sm:p-5">
+      <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
         <div className="rounded-lg border-l-4 border-l-[#C00000] bg-red-50 p-3 ring-1 ring-red-100">
           <p className="text-xs font-medium uppercase text-slate-500">Check-in URL</p>
           <p className="mt-1 break-all text-xs leading-5 text-slate-600">{client.qrUrl}</p>
@@ -593,12 +593,12 @@ function ClientDetail({
           <InfoTile icon={<CalendarDays />} label="Created" value={formatDate(client.createdAt)} />
         </div>
 
-        <div className="mt-6">
-          <div className="flex items-center justify-between">
+        <div className="mt-6 flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-ink">Session history</h3>
             <span className="text-xs text-slate-500">{history.length} total</span>
           </div>
-          <div className="mt-3 max-h-96 space-y-2 overflow-auto pr-1">
+          <div className="scroll-panel history-scroll mt-3 min-h-0 flex-1 space-y-2 overflow-y-scroll pr-1">
             {history.length === 0 && <p className="rounded-md bg-cloud px-3 py-3 text-sm text-slate-500">No sessions recorded yet.</p>}
             {history.map((entry, index) => (
               <div key={`${entry.timestamp}-${entry.manualOverride}`} className="rounded-md border-l-4 border-l-[#C00000] bg-white px-3 py-3 shadow-sm ring-1 ring-line">
