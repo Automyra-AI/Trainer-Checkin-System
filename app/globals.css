@@ -87,6 +87,10 @@ select {
   max-height: min(18rem, 46dvh);
 }
 
+.client-detail-scroll {
+  scroll-padding-bottom: 1.5rem;
+}
+
 @media (min-width: 1024px) {
   .dashboard-workspace {
     min-height: 34rem;
