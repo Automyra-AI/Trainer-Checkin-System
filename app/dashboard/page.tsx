@@ -294,8 +294,8 @@ export default function DashboardPage() {
               <Stat icon={<CalendarPlus />} label="Weekly attendance" value={`${data?.stats.weeklyAttendancePercent ?? 0}%`} tone="white" />
             </section>
 
-            <section className="dashboard-workspace mt-6 grid gap-6 lg:grid-cols-[390px_minmax(0,1fr)]">
-              <Card className="flex min-h-0 flex-col overflow-hidden border-t-4 border-t-red-600">
+            <section className="dashboard-workspace mt-6 grid items-stretch gap-6 lg:grid-cols-[390px_minmax(0,1fr)]">
+              <Card className="dashboard-panel flex min-h-0 flex-col overflow-hidden border-t-4 border-t-red-600">
                 <div className="shrink-0 border-b border-line/80 bg-white px-4 py-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -315,7 +315,7 @@ export default function DashboardPage() {
                     <input className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" placeholder="Search clients" value={query} onChange={(event) => setQuery(event.target.value)} />
                   </div>
                 </div>
-                <div className="scroll-panel roster-scroll min-h-0 flex-1 space-y-2 overflow-y-scroll px-4 pb-4 pr-2">
+                <div className="scroll-panel roster-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-5 pr-2">
                   {filteredClients.map((client) => (
                     <button
                       key={client.clientId}
@@ -435,7 +435,7 @@ function LiveFeed({
   const qrCount = entries.length - manualCount;
 
   return (
-    <Card className="flex min-h-0 flex-col overflow-hidden">
+    <Card className="dashboard-panel flex min-h-0 flex-col overflow-hidden">
       <div className="shrink-0 border-b border-red-950 bg-black px-4 py-4 text-white sm:px-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -458,7 +458,7 @@ function LiveFeed({
         </div>
       </div>
 
-      <div className="scroll-panel feed-scroll min-h-0 flex-1 overflow-y-scroll bg-gradient-to-b from-red-50 via-white to-white p-4 sm:p-5">
+      <div className="scroll-panel feed-scroll min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-red-50 via-white to-white p-4 pb-6 sm:p-5 sm:pb-6">
         {entries.length === 0 && (
           <div className="grid min-h-72 place-items-center rounded-lg border border-dashed border-line bg-white/70 p-8 text-center">
             <div>
@@ -547,7 +547,7 @@ function ClientDetail({
   };
 
   return (
-    <Card className="flex min-h-0 flex-col overflow-hidden border-t-4 border-t-[#C00000]">
+    <Card className="dashboard-panel flex min-h-0 flex-col overflow-hidden border-t-4 border-t-[#C00000]">
       <div className="shrink-0 bg-black px-5 py-5 text-white">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -598,7 +598,7 @@ function ClientDetail({
             <h3 className="text-sm font-semibold text-ink">Session history</h3>
             <span className="text-xs text-slate-500">{history.length} total</span>
           </div>
-          <div className="scroll-panel history-scroll mt-3 min-h-0 flex-1 space-y-2 overflow-y-scroll pr-1">
+          <div className="scroll-panel history-scroll mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pb-2 pr-1">
             {history.length === 0 && <p className="rounded-md bg-cloud px-3 py-3 text-sm text-slate-500">No sessions recorded yet.</p>}
             {history.map((entry, index) => (
               <div key={`${entry.timestamp}-${entry.manualOverride}`} className="rounded-md border-l-4 border-l-[#C00000] bg-white px-3 py-3 shadow-sm ring-1 ring-line">
