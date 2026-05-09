@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   TrendingUp,
   Trash2,
-  UserRoundCheck
+  UserRoundCheck,
+  X
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -75,6 +76,30 @@ function initials(name: string) {
     .join("");
 }
 
+function padDatePart(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function dateInputValue(value = new Date()) {
+  return `${value.getFullYear()}-${padDatePart(value.getMonth() + 1)}-${padDatePart(value.getDate())}`;
+}
+
+function timeInputValue(value = new Date()) {
+  return `${padDatePart(value.getHours())}:${padDatePart(value.getMinutes())}`;
+}
+
+function localDateTimeToIso(dateValue: string, timeValue: string) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const [hours, minutes] = timeValue.split(":").map(Number);
+  const date = new Date(year, month - 1, day, hours, minutes);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Choose a valid date and time.");
+  }
+
+  return date.toISOString();
+}
+
 function StatusRow({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
@@ -99,6 +124,10 @@ export default function DashboardPage() {
   const [busy, setBusy] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualDate, setManualDate] = useState(() => dateInputValue());
+  const [manualTime, setManualTime] = useState(() => timeInputValue());
+  const [manualError, setManualError] = useState("");
 
   const load = async (tokenOverride?: string) => {
     try {
@@ -124,6 +153,22 @@ export default function DashboardPage() {
     const timer = window.setInterval(load, 15000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!manualModalOpen) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) setManualModalOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [manualModalOpen, busy]);
 
   const filteredClients = useMemo(() => {
     return (data?.clients ?? []).filter((client) => client.name.toLowerCase().includes(query.toLowerCase()));
@@ -181,7 +226,18 @@ export default function DashboardPage() {
     }
   };
 
-  const manualEntry = async () => {
+  const openManualEntry = () => {
+    if (!selected) return;
+    const now = new Date();
+    setManualDate(dateInputValue(now));
+    setManualTime(timeInputValue(now));
+    setError("");
+    setNotice("");
+    setManualError("");
+    setManualModalOpen(true);
+  };
+
+  const manualEntry = async (timestamp: string) => {
     if (!selected) return;
     setBusy(true);
     try {
@@ -189,14 +245,36 @@ export default function DashboardPage() {
       setNotice("");
       await readApi("/api/manual-entry", {
         method: "POST",
-        body: JSON.stringify({ clientId: selected.clientId })
+        body: JSON.stringify({ clientId: selected.clientId, timestamp })
       });
-      setNotice(`Manual session added for ${selected.name}.`);
+      setNotice(`Manual session added for ${selected.name} at ${formatTime(timestamp)}.`);
+      setManualError("");
+      setManualModalOpen(false);
       await load();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to add manual entry");
+      setManualError(error instanceof Error ? error.message : "Unable to add manual entry");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const submitManualEntry = () => {
+    try {
+      if (!manualDate || !manualTime) {
+        setManualError("Choose both a date and time for the manual session.");
+        return;
+      }
+
+      const timestamp = localDateTimeToIso(manualDate, manualTime);
+      if (new Date(timestamp).getTime() > Date.now()) {
+        setManualError("Manual session time cannot be in the future.");
+        return;
+      }
+
+      setManualError("");
+      manualEntry(timestamp);
+    } catch (error) {
+      setManualError(error instanceof Error ? error.message : "Choose a valid date and time.");
     }
   };
 
@@ -345,7 +423,7 @@ export default function DashboardPage() {
               </Card>
 
               <div className="grid min-h-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-                <LiveFeed entries={data?.checkIns ?? []} selected={selected} busy={busy} onManualEntry={manualEntry} />
+                <LiveFeed entries={data?.checkIns ?? []} selected={selected} busy={busy} onManualEntry={openManualEntry} />
                 <ClientDetail
                   client={selected}
                   history={selectedHistory}
@@ -358,10 +436,118 @@ export default function DashboardPage() {
                 />
               </div>
             </section>
+
+            <ManualEntryDialog
+              client={selected}
+              open={manualModalOpen}
+              busy={busy}
+              date={manualDate}
+              time={manualTime}
+              error={manualError}
+              maxDate={dateInputValue()}
+              onDateChange={setManualDate}
+              onTimeChange={setManualTime}
+              onClose={() => !busy && setManualModalOpen(false)}
+              onSubmit={submitManualEntry}
+            />
           </>
         )}
       </div>
     </main>
+  );
+}
+
+function ManualEntryDialog({
+  client,
+  open,
+  busy,
+  date,
+  time,
+  error,
+  maxDate,
+  onDateChange,
+  onTimeChange,
+  onClose,
+  onSubmit
+}: {
+  client: Client | null;
+  open: boolean;
+  busy: boolean;
+  date: string;
+  time: string;
+  error: string;
+  maxDate: string;
+  onDateChange: (value: string) => void;
+  onTimeChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  if (!open || !client) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 px-4 py-6 backdrop-blur-sm" role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manual-entry-title"
+        className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-black/10"
+      >
+        <div className="flex items-start justify-between gap-4 bg-black px-5 py-4 text-white">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-red-200">Manual check-in</p>
+            <h2 id="manual-entry-title" className="mt-1 text-lg font-semibold">
+              Add session time
+            </h2>
+            <p className="mt-1 text-sm text-white/60">{client.name}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close manual entry dialog"
+            className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white/10 text-white transition hover:bg-white/15 disabled:opacity-50"
+            disabled={busy}
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div className="rounded-md border-l-4 border-l-[#C00000] bg-red-50 px-3 py-3 ring-1 ring-red-100">
+            <p className="text-sm font-medium text-ink">Choose the real session date and time.</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              This timestamp will be saved in the attendance stream and session history.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold uppercase text-slate-500">Date</span>
+              <Input type="date" value={date} max={maxDate} onChange={(event) => onDateChange(event.target.value)} />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold uppercase text-slate-500">Time</span>
+              <Input type="time" value={time} onChange={(event) => onTimeChange(event.target.value)} />
+            </label>
+          </div>
+
+          {error && (
+            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-100">
+              {error}
+            </div>
+          )}
+
+          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+            <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={busy || !date || !time} onClick={onSubmit}>
+              <CalendarPlus className="h-4 w-4" />
+              {busy ? "Adding..." : "Add manual session"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -570,13 +756,13 @@ function ClientDetail({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
-        <div className="rounded-lg border-l-4 border-l-[#C00000] bg-red-50 p-3 ring-1 ring-red-100">
+      <div className="scroll-panel client-detail-scroll flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pb-6 sm:p-5 sm:pb-6">
+        <div className="shrink-0 rounded-lg border-l-4 border-l-[#C00000] bg-red-50 p-3 ring-1 ring-red-100">
           <p className="text-xs font-medium uppercase text-slate-500">Check-in URL</p>
           <p className="mt-1 break-all text-xs leading-5 text-slate-600">{client.qrUrl}</p>
         </div>
 
-        <div className="mt-4 grid gap-2">
+        <div className="mt-4 grid shrink-0 gap-2">
           <div className="flex gap-2">
             <Input aria-label="Client name" value={editName} onChange={(event) => setEditName(event.target.value)} />
             <Button variant="ghost" disabled={busy || !editName.trim() || editName.trim() === client.name} onClick={onSaveName}>Save</Button>
@@ -588,7 +774,7 @@ function ClientDetail({
           <Button variant="danger" onClick={() => onDelete(client.clientId)} disabled={busy}><Trash2 className="h-4 w-4" />Delete client</Button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="mt-5 grid shrink-0 grid-cols-2 gap-3">
           <InfoTile icon={<Clock3 />} label="Last visit" value={lastSession ? formatDate(lastSession.timestamp) : "None"} />
           <InfoTile icon={<CalendarDays />} label="Created" value={formatDate(client.createdAt)} />
         </div>
