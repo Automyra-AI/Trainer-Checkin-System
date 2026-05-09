@@ -13,12 +13,14 @@
 }
 
 html {
+  min-height: 100%;
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     linear-gradient(rgba(220, 38, 38, 0.06) 1px, transparent 1px),
     linear-gradient(90deg, rgba(10, 10, 11, 0.04) 1px, transparent 1px),
@@ -31,6 +33,23 @@ button,
 input,
 select {
   font: inherit;
+}
+
+.dashboard-main {
+  min-height: 100dvh;
+}
+
+.dashboard-shell {
+  width: 100%;
+}
+
+.dashboard-workspace {
+  align-items: stretch;
+}
+
+.dashboard-workspace > * {
+  min-width: 0;
+  min-height: 0;
 }
 
 ::selection {
@@ -47,9 +66,60 @@ select {
     linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(10, 10, 11, 0.04));
 }
 
-@media (min-width: 1024px) and (min-height: 880px) {
+.scroll-panel {
+  min-height: 0;
+  overscroll-behavior: contain;
+  scroll-padding-block: 1rem;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(192, 0, 0, 0.55) rgba(15, 23, 42, 0.08);
+}
+
+.roster-scroll {
+  max-height: min(28rem, 62dvh);
+}
+
+.feed-scroll {
+  max-height: min(34rem, 64dvh);
+}
+
+.history-scroll {
+  max-height: min(18rem, 46dvh);
+}
+
+@media (min-width: 1024px) {
+  .dashboard-workspace {
+    min-height: 34rem;
+  }
+
+  .roster-scroll {
+    min-height: 18rem;
+  }
+
+  .history-scroll {
+    min-height: 14rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .dashboard-workspace {
+    height: clamp(34rem, calc(100dvh - 29rem), 48rem);
+  }
+
+  .dashboard-panel {
+    height: 100%;
+  }
+
+  .roster-scroll,
+  .feed-scroll,
+  .history-scroll {
+    max-height: none;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 900px) {
   .dashboard-main {
-    height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
 
@@ -60,43 +130,13 @@ select {
 
   .dashboard-workspace {
     flex: 1;
+    height: auto;
     min-height: 0;
   }
-}
 
-.scroll-panel {
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(192, 0, 0, 0.55) rgba(15, 23, 42, 0.08);
-}
-
-.roster-scroll {
-  max-height: min(26rem, 58vh);
-}
-
-.feed-scroll {
-  max-height: min(34rem, 62vh);
-}
-
-.history-scroll {
-  max-height: min(17rem, 42vh);
-}
-
-@media (min-width: 1024px) {
-  .roster-scroll {
-    min-height: 18rem;
-  }
-
-  .history-scroll {
-    min-height: 14rem;
-  }
-}
-
-@media (min-width: 1024px) and (min-height: 880px) {
   .roster-scroll,
-  .feed-scroll,
   .history-scroll {
-    max-height: none;
+    min-height: 0;
   }
 }
 
