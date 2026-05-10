@@ -16,12 +16,15 @@ export async function POST(request: NextRequest) {
     while (await getClient(clientId)) clientId = randomUUID().slice(0, 12);
 
     const qrUrl = checkInUrl(clientId);
+    const totalSessions = payload.totalSessions ?? 0;
     const client = {
       clientId,
       name: payload.name,
       qrUrl,
       status: "active" as const,
-      createdAt: nowIso()
+      createdAt: nowIso(),
+      totalSessions,
+      remainingSessions: totalSessions
     };
 
     await addClient(client);

@@ -11,7 +11,9 @@ export async function PATCH(request: NextRequest) {
     const payload = clientMutationSchema.parse(await request.json());
     const client = await updateClient(payload.clientId, {
       name: payload.name,
-      status: payload.status
+      status: payload.status,
+      totalSessions: payload.totalSessions,
+      remainingSessions: payload.remainingSessions
     });
     if (!client) return fail("Client not found", 404);
     return ok("Client updated", { client });

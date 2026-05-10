@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 export const createClientSchema = z.object({
-  name: z.string().trim().min(2, "Client name is required").max(120)
+  name: z.string().trim().min(2, "Client name is required").max(120),
+  totalSessions: z.number().int().min(0).max(999).optional()
 });
 
 export const checkInSchema = z.object({
@@ -11,10 +12,15 @@ export const checkInSchema = z.object({
 export const clientMutationSchema = z.object({
   clientId: z.string().trim().min(4).max(80),
   name: z.string().trim().min(2).max(120).optional(),
-  status: z.enum(["active", "disabled", "deleted"]).optional()
+  status: z.enum(["active", "disabled", "deleted"]).optional(),
+  totalSessions: z.number().int().min(0).max(999).optional(),
+  remainingSessions: z.number().int().min(0).max(999).optional()
 });
+
+export const checkInTypeSchema = z.enum(["manual_session", "late_cancel", "no_show"]);
 
 export const manualEntrySchema = z.object({
   clientId: z.string().trim().min(4).max(80),
-  timestamp: z.string().datetime().optional()
+  timestamp: z.string().datetime().optional(),
+  type: checkInTypeSchema.default("manual_session")
 });
