@@ -3,6 +3,7 @@ export type ApiResponse<T = unknown> =
   | { success: false; error: string };
 
 export type ClientStatus = "active" | "disabled" | "deleted";
+export type CheckInType = "qr_checkin" | "manual_session" | "late_cancel" | "no_show";
 
 export type Client = {
   clientId: string;
@@ -10,6 +11,8 @@ export type Client = {
   qrUrl: string;
   status: ClientStatus;
   createdAt: string;
+  totalSessions: number;
+  remainingSessions: number;
 };
 
 export type CheckIn = {
@@ -18,6 +21,8 @@ export type CheckIn = {
   timestamp: string;
   date: string;
   manualOverride: boolean;
+  type: CheckInType;
+  sessionsRemaining: number;
 };
 
 export type DashboardData = {

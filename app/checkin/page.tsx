@@ -79,6 +79,9 @@ function CheckInPanel() {
             </h1>
             <p className="mt-2 text-base font-medium text-slate-700">{state.checkIn.name}</p>
             <p className="mt-1 text-sm text-slate-500">{new Date(state.checkIn.timestamp).toLocaleString()}</p>
+            <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 ring-1 ring-red-100">
+              {state.checkIn.sessionsRemaining} sessions remaining
+            </p>
           </>
         )}
 

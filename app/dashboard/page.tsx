@@ -22,7 +22,17 @@ import {
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Input } from "@/components/ui";
-import type { ApiResponse, CheckIn, Client, DashboardData } from "@/lib/types";
+import type { ApiResponse, CheckIn, CheckInType, Client, DashboardData } from "@/lib/types";
+
+const MANUAL_TYPES: Array<{ value: Exclude<CheckInType, "qr_checkin">; label: string }> = [
+  { value: "manual_session", label: "Completed session" },
+  { value: "late_cancel", label: "Late cancel" },
+  { value: "no_show", label: "No show" }
+];
+
+function entryTypeLabel(type: CheckInType) {
+  return MANUAL_TYPES.find((item) => item.value === type)?.label ?? "QR check-in";
+}
 
 function authHeaders(tokenOverride?: string) {
   const token =
@@ -118,6 +128,8 @@ export default function DashboardPage() {
   const [query, setQuery] = useState("");
   const [newName, setNewName] = useState("");
   const [editName, setEditName] = useState("");
+  const [editTotalSessions, setEditTotalSessions] = useState("0");
+  const [editRemainingSessions, setEditRemainingSessions] = useState("0");
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -127,6 +139,7 @@ export default function DashboardPage() {
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [manualDate, setManualDate] = useState(() => dateInputValue());
   const [manualTime, setManualTime] = useState(() => timeInputValue());
+  const [manualType, setManualType] = useState<Exclude<CheckInType, "qr_checkin">>("manual_session");
   const [manualError, setManualError] = useState("");
 
   const load = async (tokenOverride?: string) => {
@@ -138,8 +151,11 @@ export default function DashboardPage() {
       setLastUpdated(new Date().toISOString());
       setSelected((current) => {
         const updated = current ? next.clients.find((client) => client.clientId === current.clientId) : null;
-        setEditName((updated ?? next.clients[0])?.name ?? "");
-        return updated ?? next.clients[0] ?? null;
+        const nextSelected = updated ?? next.clients[0] ?? null;
+        setEditName(nextSelected?.name ?? "");
+        setEditTotalSessions(String(nextSelected?.totalSessions ?? 0));
+        setEditRemainingSessions(String(nextSelected?.remainingSessions ?? 0));
+        return nextSelected;
       });
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to load dashboard");
@@ -199,7 +215,7 @@ export default function DashboardPage() {
     }
   };
 
-  const mutateClient = async (clientId: string, updates: Partial<Pick<Client, "name" | "status">>) => {
+  const mutateClient = async (clientId: string, updates: Partial<Pick<Client, "name" | "status" | "totalSessions" | "remainingSessions">>) => {
     setBusy(true);
     try {
       await readApi("/api/client", {
@@ -231,13 +247,14 @@ export default function DashboardPage() {
     const now = new Date();
     setManualDate(dateInputValue(now));
     setManualTime(timeInputValue(now));
+    setManualType("manual_session");
     setError("");
     setNotice("");
     setManualError("");
     setManualModalOpen(true);
   };
 
-  const manualEntry = async (timestamp: string) => {
+  const manualEntry = async (timestamp: string, type: Exclude<CheckInType, "qr_checkin">) => {
     if (!selected) return;
     setBusy(true);
     try {
@@ -245,9 +262,9 @@ export default function DashboardPage() {
       setNotice("");
       await readApi("/api/manual-entry", {
         method: "POST",
-        body: JSON.stringify({ clientId: selected.clientId, timestamp })
+        body: JSON.stringify({ clientId: selected.clientId, timestamp, type })
       });
-      setNotice(`Manual session added for ${selected.name} at ${formatTime(timestamp)}.`);
+      setNotice(`${entryTypeLabel(type)} added for ${selected.name} at ${formatTime(timestamp)}.`);
       setManualError("");
       setManualModalOpen(false);
       await load();
@@ -272,7 +289,7 @@ export default function DashboardPage() {
       }
 
       setManualError("");
-      manualEntry(timestamp);
+      manualEntry(timestamp, manualType);
     } catch (error) {
       setManualError(error instanceof Error ? error.message : "Choose a valid date and time.");
     }
@@ -400,6 +417,8 @@ export default function DashboardPage() {
                       onClick={() => {
                         setSelected(client);
                         setEditName(client.name);
+                        setEditTotalSessions(String(client.totalSessions));
+                        setEditRemainingSessions(String(client.remainingSessions));
                       }}
                       className={`w-full rounded-md px-3 py-3 text-left transition ${selected?.clientId === client.clientId ? "bg-black text-white shadow-sm ring-1 ring-black" : "bg-white ring-1 ring-transparent hover:bg-red-50 hover:ring-red-100"}`}
                     >
@@ -430,7 +449,18 @@ export default function DashboardPage() {
                   busy={busy}
                   editName={editName}
                   setEditName={setEditName}
+                  editTotalSessions={editTotalSessions}
+                  setEditTotalSessions={setEditTotalSessions}
+                  editRemainingSessions={editRemainingSessions}
+                  setEditRemainingSessions={setEditRemainingSessions}
                   onSaveName={() => selected && mutateClient(selected.clientId, { name: editName.trim() })}
+                  onSaveSessions={() => {
+                    if (!selected) return;
+                    mutateClient(selected.clientId, {
+                      totalSessions: Number(editTotalSessions) || 0,
+                      remainingSessions: Number(editRemainingSessions) || 0
+                    });
+                  }}
                   onStatus={(clientId, status) => mutateClient(clientId, { status })}
                   onDelete={deleteClient}
                 />
@@ -443,10 +473,12 @@ export default function DashboardPage() {
               busy={busy}
               date={manualDate}
               time={manualTime}
+              type={manualType}
               error={manualError}
               maxDate={dateInputValue()}
               onDateChange={setManualDate}
               onTimeChange={setManualTime}
+              onTypeChange={setManualType}
               onClose={() => !busy && setManualModalOpen(false)}
               onSubmit={submitManualEntry}
             />
@@ -463,10 +495,12 @@ function ManualEntryDialog({
   busy,
   date,
   time,
+  type,
   error,
   maxDate,
   onDateChange,
   onTimeChange,
+  onTypeChange,
   onClose,
   onSubmit
 }: {
@@ -475,10 +509,12 @@ function ManualEntryDialog({
   busy: boolean;
   date: string;
   time: string;
+  type: Exclude<CheckInType, "qr_checkin">;
   error: string;
   maxDate: string;
   onDateChange: (value: string) => void;
   onTimeChange: (value: string) => void;
+  onTypeChange: (value: Exclude<CheckInType, "qr_checkin">) => void;
   onClose: () => void;
   onSubmit: () => void;
 }) {
@@ -520,6 +556,18 @@ function ManualEntryDialog({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className="mb-1.5 block text-xs font-semibold uppercase text-slate-500">Entry type</span>
+              <select
+                className="focus-ring h-11 w-full rounded-md border border-line bg-white/95 px-3 text-sm shadow-sm transition hover:border-slate-300"
+                value={type}
+                onChange={(event) => onTypeChange(event.target.value as Exclude<CheckInType, "qr_checkin">)}
+              >
+                {MANUAL_TYPES.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
             <label className="block">
               <span className="mb-1.5 block text-xs font-semibold uppercase text-slate-500">Date</span>
               <Input type="date" value={date} max={maxDate} onChange={(event) => onDateChange(event.target.value)} />
@@ -542,7 +590,7 @@ function ManualEntryDialog({
             </Button>
             <Button type="button" disabled={busy || !date || !time} onClick={onSubmit}>
               <CalendarPlus className="h-4 w-4" />
-              {busy ? "Adding..." : "Add manual session"}
+              {busy ? "Adding..." : "Add entry"}
             </Button>
           </div>
         </div>
@@ -630,7 +678,7 @@ function LiveFeed({
               <span className="rounded-full bg-[#C00000] px-2 py-1 text-xs font-semibold text-white ring-1 ring-[#A00000]">Live</span>
             </div>
             <p className="mt-1 text-sm text-zinc-300">
-              {latest ? `Last session: ${latest.name} at ${formatTime(latest.timestamp)}` : "No check-ins recorded yet."}
+              {latest ? `Last entry: ${latest.name} at ${formatTime(latest.timestamp)}` : "No check-ins recorded yet."}
             </p>
           </div>
           <Button variant="ghost" disabled={!selected || busy} onClick={onManualEntry}>
@@ -638,7 +686,7 @@ function LiveFeed({
           </Button>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <StreamMetric label="Total sessions" value={entries.length} />
+          <StreamMetric label="Total entries" value={entries.length} />
           <StreamMetric label="QR scans" value={qrCount} />
           <StreamMetric label="Manual added" value={manualCount} />
         </div>
@@ -676,13 +724,13 @@ function LiveFeed({
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                         <span>{formatDate(entry.timestamp)}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span>{entry.manualOverride ? "Manual session" : "QR check-in"}</span>
+                        <span>{entryTypeLabel(entry.type)}</span>
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-ink">{formatTime(entry.timestamp)}</p>
-                    <p className="mt-1 text-xs text-slate-500">Session #{entries.length - index}</p>
+                    <p className="mt-1 text-xs text-slate-500">{entry.sessionsRemaining} left</p>
                   </div>
                 </div>
               </motion.div>
@@ -700,7 +748,12 @@ function ClientDetail({
   busy,
   editName,
   setEditName,
+  editTotalSessions,
+  setEditTotalSessions,
+  editRemainingSessions,
+  setEditRemainingSessions,
   onSaveName,
+  onSaveSessions,
   onStatus,
   onDelete
 }: {
@@ -709,7 +762,12 @@ function ClientDetail({
   busy: boolean;
   editName: string;
   setEditName: (value: string) => void;
+  editTotalSessions: string;
+  setEditTotalSessions: (value: string) => void;
+  editRemainingSessions: string;
+  setEditRemainingSessions: (value: string) => void;
   onSaveName: () => void;
+  onSaveSessions: () => void;
   onStatus: (clientId: string, status: Client["status"]) => void;
   onDelete: (clientId: string) => void;
 }) {
@@ -717,8 +775,6 @@ function ClientDetail({
     return <Card className="grid min-h-80 place-items-center p-6 text-center text-sm text-slate-500 xl:min-h-0">Select or create a client.</Card>;
   }
 
-  const manualSessions = history.filter((entry) => entry.manualOverride).length;
-  const qrSessions = history.length - manualSessions;
   const lastSession = history[0];
 
   const downloadQr = async () => {
@@ -750,9 +806,9 @@ function ClientDetail({
           <MoreHorizontal className="h-5 w-5 shrink-0 text-white/45" />
         </div>
         <div className="mt-5 grid grid-cols-3 gap-2">
-          <MiniMetric label="Total" value={history.length} accent />
-          <MiniMetric label="QR" value={qrSessions} />
-          <MiniMetric label="Manual" value={manualSessions} />
+          <MiniMetric label="Left" value={client.remainingSessions} accent />
+          <MiniMetric label="Package" value={client.totalSessions} />
+          <MiniMetric label="Used" value={Math.max(client.totalSessions - client.remainingSessions, 0)} />
         </div>
       </div>
 
@@ -767,6 +823,29 @@ function ClientDetail({
             <Input aria-label="Client name" value={editName} onChange={(event) => setEditName(event.target.value)} />
             <Button variant="ghost" disabled={busy || !editName.trim() || editName.trim() === client.name} onClick={onSaveName}>Save</Button>
           </div>
+          <div className="grid gap-2 rounded-md bg-cloud p-3 ring-1 ring-line/70">
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold uppercase text-slate-500">Package</span>
+                <Input min={0} max={999} type="number" value={editTotalSessions} onChange={(event) => setEditTotalSessions(event.target.value)} />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold uppercase text-slate-500">Remaining</span>
+                <Input min={0} max={999} type="number" value={editRemainingSessions} onChange={(event) => setEditRemainingSessions(event.target.value)} />
+              </label>
+            </div>
+            <Button
+              variant="ghost"
+              disabled={
+                busy ||
+                ((Number(editTotalSessions) || 0) === client.totalSessions &&
+                  (Number(editRemainingSessions) || 0) === client.remainingSessions)
+              }
+              onClick={onSaveSessions}
+            >
+              Save sessions
+            </Button>
+          </div>
           <Button variant="ghost" onClick={downloadQr}><Download className="h-4 w-4" />Download QR</Button>
           <Button variant="ghost" onClick={() => onStatus(client.clientId, client.status === "active" ? "disabled" : "active")} disabled={busy}>
             <QrCode className="h-4 w-4" />{client.status === "active" ? "Disable QR" : "Enable QR"}
@@ -776,7 +855,7 @@ function ClientDetail({
 
         <div className="mt-5 grid shrink-0 grid-cols-2 gap-3">
           <InfoTile icon={<Clock3 />} label="Last visit" value={lastSession ? formatDate(lastSession.timestamp) : "None"} />
-          <InfoTile icon={<CalendarDays />} label="Created" value={formatDate(client.createdAt)} />
+          <InfoTile icon={<CalendarDays />} label="Sessions left" value={`${client.remainingSessions} of ${client.totalSessions}`} />
         </div>
 
         <div className="mt-6 flex min-h-0 flex-1 flex-col">
@@ -786,15 +865,15 @@ function ClientDetail({
           </div>
           <div className="scroll-panel history-scroll mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pb-2 pr-1">
             {history.length === 0 && <p className="rounded-md bg-cloud px-3 py-3 text-sm text-slate-500">No sessions recorded yet.</p>}
-            {history.map((entry, index) => (
+            {history.map((entry) => (
               <div key={`${entry.timestamp}-${entry.manualOverride}`} className="rounded-md border-l-4 border-l-[#C00000] bg-white px-3 py-3 shadow-sm ring-1 ring-line">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-ink">Session #{history.length - index}</p>
+                    <p className="text-sm font-semibold text-ink">{entryTypeLabel(entry.type)}</p>
                     <p className="mt-1 text-xs text-slate-500">{formatDate(entry.timestamp)} at {formatTime(entry.timestamp)}</p>
                   </div>
                   <span className={`rounded-full px-2 py-1 text-xs font-medium ${entry.manualOverride ? "bg-zinc-100 text-zinc-800" : "bg-red-50 text-red-600"}`}>
-                    {entry.manualOverride ? "Manual Added" : "QR Check-in"}
+                    {entry.sessionsRemaining} left
                   </span>
                 </div>
               </div>

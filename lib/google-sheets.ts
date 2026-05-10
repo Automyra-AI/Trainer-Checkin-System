@@ -1,11 +1,25 @@
 import { sheets } from "@googleapis/sheets";
 import { JWT } from "google-auth-library";
-import type { CheckIn, Client, ClientStatus } from "./types";
+import type { CheckIn, CheckInType, Client, ClientStatus } from "./types";
 
 const CLIENTS_SHEET = "Clients";
 const CHECKINS_SHEET = "CheckIns";
-const CLIENT_HEADERS = ["ClientId", "Name", "QrUrl", "Status", "CreatedAt"];
-const CHECKIN_HEADERS = ["ClientId", "Name", "Timestamp", "Date", "ManualOverride"];
+const CLIENT_HEADERS = ["ClientId", "Name", "QrUrl", "Status", "CreatedAt", "TotalSessions", "RemainingSessions"];
+const CHECKIN_HEADERS = ["ClientId", "Name", "Timestamp", "Date", "ManualOverride", "Type", "SessionsRemaining"];
+
+function numberCell(value: string | undefined) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function checkInType(row: string[]): CheckInType {
+  const value = row[5] as CheckInType | undefined;
+  if (value === "qr_checkin" || value === "manual_session" || value === "late_cancel" || value === "no_show") {
+    return value;
+  }
+
+  return row[4] === "true" ? "manual_session" : "qr_checkin";
+}
 
 function requiredEnv(name: string) {
   const value = process.env[name];
@@ -50,7 +64,9 @@ function rowToClient(row: string[]): Client | null {
     name: row[1] ?? "",
     qrUrl: row[2] ?? "",
     status: (row[3] as ClientStatus) || "active",
-    createdAt: row[4] ?? ""
+    createdAt: row[4] ?? "",
+    totalSessions: numberCell(row[5]),
+    remainingSessions: numberCell(row[6])
   };
 }
 
@@ -61,7 +77,9 @@ function rowToCheckIn(row: string[]): CheckIn | null {
     name: row[1] ?? "",
     timestamp: row[2] ?? "",
     date: row[3] ?? "",
-    manualOverride: row[4] === "true"
+    manualOverride: row[4] === "true",
+    type: checkInType(row),
+    sessionsRemaining: numberCell(row[6])
   };
 }
 
@@ -82,7 +100,7 @@ export async function ensureSheetStructure() {
   await withRetry(() =>
     api.spreadsheets.values.update({
       spreadsheetId,
-      range: `${CLIENTS_SHEET}!A1:E1`,
+      range: `${CLIENTS_SHEET}!A1:G1`,
       valueInputOption: "RAW",
       requestBody: { values: [CLIENT_HEADERS] }
     })
@@ -91,7 +109,7 @@ export async function ensureSheetStructure() {
   await withRetry(() =>
     api.spreadsheets.values.update({
       spreadsheetId,
-      range: `${CHECKINS_SHEET}!A1:E1`,
+      range: `${CHECKINS_SHEET}!A1:G1`,
       valueInputOption: "RAW",
       requestBody: { values: [CHECKIN_HEADERS] }
     })
@@ -103,7 +121,7 @@ export async function getClients(includeDeleted = false) {
   const api = client();
   const spreadsheetId = requiredEnv("GOOGLE_SHEETS_ID");
   const response = await withRetry(() =>
-    api.spreadsheets.values.get({ spreadsheetId, range: `${CLIENTS_SHEET}!A2:E` })
+    api.spreadsheets.values.get({ spreadsheetId, range: `${CLIENTS_SHEET}!A2:G` })
   );
   const clients = (response.data.values ?? []).map(rowToClient).filter(Boolean) as Client[];
   return includeDeleted ? clients : clients.filter((client) => client.status !== "deleted");
@@ -124,7 +142,7 @@ export async function addClient(client: Client) {
       range: `${CLIENTS_SHEET}!A:E`,
       valueInputOption: "RAW",
       requestBody: {
-        values: [[client.clientId, client.name, client.qrUrl, client.status, client.createdAt]]
+        values: [[client.clientId, client.name, client.qrUrl, client.status, client.createdAt, client.totalSessions, client.remainingSessions]]
       }
     })
   );
@@ -134,7 +152,7 @@ function clientApi() {
   return client();
 }
 
-export async function updateClient(clientId: string, updates: Partial<Pick<Client, "name" | "status" | "qrUrl">>) {
+export async function updateClient(clientId: string, updates: Partial<Pick<Client, "name" | "status" | "qrUrl" | "totalSessions" | "remainingSessions">>) {
   const clients = await getClients(true);
   const rowIndex = clients.findIndex((client) => client.clientId === clientId);
   if (rowIndex === -1) return null;
@@ -147,10 +165,10 @@ export async function updateClient(clientId: string, updates: Partial<Pick<Clien
   await withRetry(() =>
     api.spreadsheets.values.update({
       spreadsheetId,
-      range: `${CLIENTS_SHEET}!A${sheetRow}:E${sheetRow}`,
+      range: `${CLIENTS_SHEET}!A${sheetRow}:G${sheetRow}`,
       valueInputOption: "RAW",
       requestBody: {
-        values: [[next.clientId, next.name, next.qrUrl, next.status, next.createdAt]]
+        values: [[next.clientId, next.name, next.qrUrl, next.status, next.createdAt, next.totalSessions, next.remainingSessions]]
       }
     })
   );
@@ -163,7 +181,7 @@ export async function getCheckIns() {
   const api = clientApi();
   const spreadsheetId = requiredEnv("GOOGLE_SHEETS_ID");
   const response = await withRetry(() =>
-    api.spreadsheets.values.get({ spreadsheetId, range: `${CHECKINS_SHEET}!A2:E` })
+    api.spreadsheets.values.get({ spreadsheetId, range: `${CHECKINS_SHEET}!A2:G` })
   );
   return ((response.data.values ?? []).map(rowToCheckIn).filter(Boolean) as CheckIn[]).sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -177,10 +195,10 @@ export async function appendCheckIn(checkIn: CheckIn) {
   await withRetry(() =>
     api.spreadsheets.values.append({
       spreadsheetId,
-      range: `${CHECKINS_SHEET}!A:E`,
+      range: `${CHECKINS_SHEET}!A:G`,
       valueInputOption: "RAW",
       requestBody: {
-        values: [[checkIn.clientId, checkIn.name, checkIn.timestamp, checkIn.date, String(checkIn.manualOverride)]]
+        values: [[checkIn.clientId, checkIn.name, checkIn.timestamp, checkIn.date, String(checkIn.manualOverride), checkIn.type, checkIn.sessionsRemaining]]
       }
     })
   );
