@@ -134,6 +134,7 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [manualModalOpen, setManualModalOpen] = useState(false);
@@ -307,6 +308,35 @@ export default function DashboardPage() {
     }
   };
 
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      setError("");
+      setNotice("");
+      const response = await fetch("/api/export-excel", { headers: authHeaders() });
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => null)) as ApiResponse | null;
+        throw new Error(json && !json.success ? json.error : "Unable to export Excel workbook");
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "client-checkin-history.xlsx";
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      setNotice("Excel workbook downloaded.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to export Excel workbook");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const unauthorized = error.toLowerCase() === "unauthorized";
   const isUnlocked = Boolean(data) && !unauthorized;
 
@@ -326,6 +356,9 @@ export default function DashboardPage() {
                 <Input aria-label="Admin token" placeholder="Admin token" value={token} onChange={(event) => setToken(event.target.value)} />
                 <Button variant="ghost" onClick={saveToken}>Save token</Button>
                 <Button variant="ghost" onClick={() => load()}><RefreshCw className="h-4 w-4" />Refresh</Button>
+                <Button variant="ghost" disabled={!isUnlocked || exporting} onClick={exportExcel}>
+                  <Download className="h-4 w-4" />{exporting ? "Exporting..." : "Export Excel"}
+                </Button>
               </div>
             </div>
           </div>
