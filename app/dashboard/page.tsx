@@ -9,6 +9,7 @@ import {
   Download,
   Fingerprint,
   MoreHorizontal,
+  Pencil,
   Plus,
   QrCode,
   RefreshCw,
@@ -202,11 +203,15 @@ export default function DashboardPage() {
     try {
       setError("");
       setNotice("");
-      await readApi("/api/create-client", {
+      const result = await readApi<{ client: Client }>("/api/create-client", {
         method: "POST",
         body: JSON.stringify({ name: newName.trim() })
       });
-      setNotice(`${newName.trim()} was created.`);
+      setSelected(result.client);
+      setEditName(result.client.name);
+      setEditTotalSessions(String(result.client.totalSessions));
+      setEditRemainingSessions(String(result.client.remainingSessions));
+      setNotice(`${result.client.name} was created.`);
       setNewName("");
       await load();
     } catch (error) {
@@ -232,12 +237,38 @@ export default function DashboardPage() {
   };
 
   const deleteClient = async (clientId: string) => {
+    if (!window.confirm("Delete this client and clear their check-in history?")) return;
     setBusy(true);
     try {
       await readApi(`/api/client?clientId=${encodeURIComponent(clientId)}`, { method: "DELETE" });
+      setNotice("Client and check-in history deleted.");
       await load();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to delete client");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteCheckInEntry = async (entry: CheckIn) => {
+    if (!window.confirm(`Delete this ${entryTypeLabel(entry.type).toLowerCase()} for ${entry.name}?`)) return;
+    setBusy(true);
+    try {
+      setError("");
+      setNotice("");
+      await readApi("/api/checkin", {
+        method: "DELETE",
+        body: JSON.stringify({
+          clientId: entry.clientId,
+          timestamp: entry.timestamp,
+          type: entry.type,
+          manualOverride: entry.manualOverride
+        })
+      });
+      setNotice("Check-in deleted and session balance recalculated.");
+      await load();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to delete check-in");
     } finally {
       setBusy(false);
     }
@@ -416,10 +447,11 @@ export default function DashboardPage() {
 
         {isUnlocked && (
           <>
-            <section className="mt-6 shrink-0 grid gap-4 md:grid-cols-3">
+            <section className="mt-6 shrink-0 grid gap-4 md:grid-cols-4">
               <Stat icon={<Activity />} label="Check-ins today" value={data?.stats.totalToday ?? 0} tone="red" />
               <Stat icon={<UserRoundCheck />} label="Active clients" value={data?.stats.activeClients ?? 0} tone="black" />
-              <Stat icon={<CalendarPlus />} label="Weekly attendance" value={`${data?.stats.weeklyAttendancePercent ?? 0}%`} tone="white" />
+              <Stat icon={<CalendarPlus />} label="This week" value={data?.stats.weeklyTotal ?? 0} tone="white" />
+              <Stat icon={<CalendarDays />} label="This month" value={data?.stats.monthlyTotal ?? 0} tone="white" />
             </section>
 
             <section className="dashboard-workspace mt-6 grid items-stretch gap-6 lg:grid-cols-[390px_minmax(0,1fr)]">
@@ -475,7 +507,13 @@ export default function DashboardPage() {
               </Card>
 
               <div className="grid min-h-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-                <LiveFeed entries={data?.checkIns ?? []} selected={selected} busy={busy} onManualEntry={openManualEntry} />
+                <LiveFeed
+                  entries={data?.checkIns ?? []}
+                  selected={selected}
+                  busy={busy}
+                  onManualEntry={openManualEntry}
+                  onDeleteEntry={deleteCheckInEntry}
+                />
                 <ClientDetail
                   client={selected}
                   history={selectedHistory}
@@ -496,6 +534,7 @@ export default function DashboardPage() {
                   }}
                   onStatus={(clientId, status) => mutateClient(clientId, { status })}
                   onDelete={deleteClient}
+                  onDeleteEntry={deleteCheckInEntry}
                 />
               </div>
             </section>
@@ -690,12 +729,14 @@ function LiveFeed({
   entries,
   selected,
   busy,
-  onManualEntry
+  onManualEntry,
+  onDeleteEntry
 }: {
   entries: CheckIn[];
   selected: Client | null;
   busy: boolean;
   onManualEntry: () => void;
+  onDeleteEntry: (entry: CheckIn) => void;
 }) {
   const latest = entries[0];
   const manualCount = entries.filter((entry) => entry.manualOverride).length;
@@ -761,9 +802,20 @@ function LiveFeed({
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-ink">{formatTime(entry.timestamp)}</p>
-                    <p className="mt-1 text-xs text-slate-500">{entry.sessionsRemaining} left</p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-ink">{formatTime(entry.timestamp)}</p>
+                      <p className="mt-1 text-xs text-slate-500">{entry.sessionsRemaining} left</p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Delete check-in for ${entry.name}`}
+                      className="focus-ring grid h-8 w-8 place-items-center rounded-md text-slate-400 opacity-100 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
+                      disabled={busy}
+                      onClick={() => onDeleteEntry(entry)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -788,7 +840,8 @@ function ClientDetail({
   onSaveName,
   onSaveSessions,
   onStatus,
-  onDelete
+  onDelete,
+  onDeleteEntry
 }: {
   client: Client | null;
   history: CheckIn[];
@@ -803,6 +856,7 @@ function ClientDetail({
   onSaveSessions: () => void;
   onStatus: (clientId: string, status: Client["status"]) => void;
   onDelete: (clientId: string) => void;
+  onDeleteEntry: (entry: CheckIn) => void;
 }) {
   if (!client) {
     return <Card className="grid min-h-80 place-items-center p-6 text-center text-sm text-slate-500 xl:min-h-0">Select or create a client.</Card>;
@@ -853,8 +907,10 @@ function ClientDetail({
 
         <div className="mt-4 grid shrink-0 gap-2">
           <div className="flex gap-2">
-            <Input aria-label="Client name" value={editName} onChange={(event) => setEditName(event.target.value)} />
-            <Button variant="ghost" disabled={busy || !editName.trim() || editName.trim() === client.name} onClick={onSaveName}>Save</Button>
+            <Input aria-label="Active client name" value={editName} onChange={(event) => setEditName(event.target.value)} />
+            <Button variant="ghost" disabled={busy || !editName.trim() || editName.trim() === client.name} onClick={onSaveName}>
+              <Pencil className="h-4 w-4" />Rename
+            </Button>
           </div>
           <div className="grid gap-2 rounded-md bg-cloud p-3 ring-1 ring-line/70">
             <div className="grid grid-cols-2 gap-2">
@@ -905,9 +961,20 @@ function ClientDetail({
                     <p className="text-sm font-semibold text-ink">{entryTypeLabel(entry.type)}</p>
                     <p className="mt-1 text-xs text-slate-500">{formatDate(entry.timestamp)} at {formatTime(entry.timestamp)}</p>
                   </div>
-                  <span className={`rounded-full px-2 py-1 text-xs font-medium ${entry.manualOverride ? "bg-zinc-100 text-zinc-800" : "bg-red-50 text-red-600"}`}>
-                    {entry.sessionsRemaining} left
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${entry.manualOverride ? "bg-zinc-100 text-zinc-800" : "bg-red-50 text-red-600"}`}>
+                      {entry.sessionsRemaining} left
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${entryTypeLabel(entry.type).toLowerCase()}`}
+                      className="focus-ring grid h-8 w-8 place-items-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                      disabled={busy}
+                      onClick={() => onDeleteEntry(entry)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

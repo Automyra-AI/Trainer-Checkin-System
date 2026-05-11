@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { fail, ok, errorMessage } from "@/lib/api-response";
 import { isAdminRequest } from "@/lib/auth";
 import { clientMutationSchema } from "@/lib/validation";
-import { updateClient } from "@/lib/google-sheets";
+import { deleteClientCheckIns, updateClient } from "@/lib/google-sheets";
 
 export async function PATCH(request: NextRequest) {
   if (!isAdminRequest(request)) return fail("Unauthorized", 401);
@@ -30,7 +30,8 @@ export async function DELETE(request: NextRequest) {
     if (!clientId) return fail("Missing clientId", 400);
     const client = await updateClient(clientId, { status: "deleted" });
     if (!client) return fail("Client not found", 404);
-    return ok("Client deleted", { client });
+    const deletedCheckIns = await deleteClientCheckIns(clientId);
+    return ok("Client deleted", { client, deletedCheckIns });
   } catch (error) {
     return fail(errorMessage(error), 400);
   }
