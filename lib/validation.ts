@@ -18,6 +18,14 @@ export const clientMutationSchema = z.object({
 });
 
 export const checkInTypeSchema = z.enum(["manual_session", "late_cancel", "no_show"]);
+export const checkInDeleteTypeSchema = z.enum(["qr_checkin", "manual_session", "late_cancel", "no_show"]);
+
+export const deleteCheckInSchema = z.object({
+  clientId: z.string().trim().min(4).max(80),
+  timestamp: z.string().datetime(),
+  type: checkInDeleteTypeSchema,
+  manualOverride: z.boolean()
+});
 
 export const manualEntrySchema = z.object({
   clientId: z.string().trim().min(4).max(80),

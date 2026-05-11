@@ -9,10 +9,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const [clients, checkIns] = await Promise.all([getClients(), getCheckIns()]);
+    const visibleClientIds = new Set(clients.map((client) => client.clientId));
+    const visibleCheckIns = checkIns.filter((checkIn) => visibleClientIds.has(checkIn.clientId));
     return ok("Dashboard loaded", {
       clients,
-      checkIns,
-      stats: dashboardStats(clients, checkIns)
+      checkIns: visibleCheckIns,
+      stats: dashboardStats(clients, visibleCheckIns)
     });
   } catch (error) {
     return fail(errorMessage(error), 500);

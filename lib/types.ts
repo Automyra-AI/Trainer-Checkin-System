@@ -31,6 +31,8 @@ export type DashboardData = {
   stats: {
     totalToday: number;
     activeClients: number;
+    weeklyTotal: number;
+    monthlyTotal: number;
     weeklyAttendancePercent: number;
   };
 };
