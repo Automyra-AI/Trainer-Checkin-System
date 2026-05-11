@@ -31,6 +31,8 @@ const MANUAL_TYPES: Array<{ value: Exclude<CheckInType, "qr_checkin">; label: st
   { value: "no_show", label: "No show" }
 ];
 
+type ClientSort = "az" | "za" | "newest";
+
 function entryTypeLabel(type: CheckInType) {
   return MANUAL_TYPES.find((item) => item.value === type)?.label ?? "QR check-in";
 }
@@ -127,6 +129,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [selected, setSelected] = useState<Client | null>(null);
   const [query, setQuery] = useState("");
+  const [clientSort, setClientSort] = useState<ClientSort>("az");
   const [newName, setNewName] = useState("");
   const [editName, setEditName] = useState("");
   const [editTotalSessions, setEditTotalSessions] = useState("0");
@@ -189,8 +192,18 @@ export default function DashboardPage() {
   }, [manualModalOpen, busy]);
 
   const filteredClients = useMemo(() => {
-    return (data?.clients ?? []).filter((client) => client.name.toLowerCase().includes(query.toLowerCase()));
-  }, [data?.clients, query]);
+    const normalizedQuery = query.toLowerCase();
+    const clients = (data?.clients ?? []).filter((client) => client.name.toLowerCase().includes(normalizedQuery));
+
+    return [...clients].sort((first, second) => {
+      if (clientSort === "newest") {
+        return new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
+      }
+
+      const direction = clientSort === "az" ? 1 : -1;
+      return first.name.localeCompare(second.name, undefined, { sensitivity: "base", numeric: true }) * direction;
+    });
+  }, [clientSort, data?.clients, query]);
 
   const selectedHistory = useMemo(() => {
     if (!selected) return [];
@@ -474,6 +487,18 @@ export default function DashboardPage() {
                     <Search className="h-4 w-4 text-slate-400" />
                     <input className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" placeholder="Search clients" value={query} onChange={(event) => setQuery(event.target.value)} />
                   </div>
+                  <label className="mt-3 flex items-center gap-2 rounded-md bg-white px-3 py-2 ring-1 ring-line/70">
+                    <span className="text-xs font-semibold uppercase text-slate-500">Sort</span>
+                    <select
+                      className="focus-ring h-8 flex-1 rounded-md border border-transparent bg-transparent text-sm font-medium text-ink outline-none hover:border-line"
+                      value={clientSort}
+                      onChange={(event) => setClientSort(event.target.value as ClientSort)}
+                    >
+                      <option value="az">A-Z</option>
+                      <option value="za">Z-A</option>
+                      <option value="newest">Newest</option>
+                    </select>
+                  </label>
                 </div>
                 <div className="scroll-panel roster-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-5 pr-2">
                   {filteredClients.map((client) => (
